@@ -1,11 +1,10 @@
 import cv2
-from blue_detector import detect_blue_object, detect_center_face   # if your file is named detect_blue.py
+from blue_detector import detect_blue_object   # your file containing the function
 
 DEVICE_INDEX = 0   # /dev/video0
 
-
 def main():
-    # Open webcam with V4L2 backend
+    # Open webcam
     cap = cv2.VideoCapture(DEVICE_INDEX, cv2.CAP_V4L2)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -14,9 +13,7 @@ def main():
         print("Could not open camera")
         return
 
-    frame_count = 0
-
-    print("Camera is running... press CTRL+C to stop.")
+    print("Running... press 'q' in the window to quit.")
 
     try:
         while True:
@@ -25,28 +22,24 @@ def main():
                 print("Failed to grab frame")
                 break
 
-            # ----- YOUR DETECTION CODE -----
-            annotated, info = detect_center_face(frame)
-            # --------------------------------
+            # Run your blue object detector
+            annotated, info = detect_blue_object(frame)
 
-            if info is not None:
-                cx_face, cy_face, w_face, h_face = info
-                print(f"CenterFace: cx={cx_face:4d}, cy={cy_face:4d}, w={w_face:3d}, h={h_face:3d}", end="\r")
-            else:
-                print("No center face detected.        ", end="\r")
+            # Show the annotated frame
+            cv2.imshow("Blue Object Detection", annotated)
 
-            # Save debug image every 30 frames
-            frame_count += 1
-            if frame_count % 30 == 0:
-                cv2.imwrite("debug_frame.jpg", annotated)
+            # Quit if user presses q
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                print("\n'q' pressed, exiting...")
+                break
 
     except KeyboardInterrupt:
-        print("\nStopping...")
+        print("\nCTRL+C detected, stopping...")
 
     finally:
         cap.release()
-        print("Camera released.")
-
+        cv2.destroyAllWindows()
+        print("Camera released and window closed.")
 
 if __name__ == "__main__":
     main()
