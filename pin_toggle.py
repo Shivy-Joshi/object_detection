@@ -13,6 +13,6 @@ def toggle(pin, sec):
 
 
 if __name__ == "__main__":
-    toggle(17, 3000)
+    toggle(17, 3)
 # use the GPIO pin not the physical pin number (used 27 for test on LED)
 
