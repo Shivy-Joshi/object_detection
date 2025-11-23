@@ -11,6 +11,8 @@ def toggle(pin, sec):
 
     GPIO.cleanup()
 
-toggle(17)
-# use the GPIO pin not the physical pin numner (used 27 for test on LED)
+
+if __name__ == "__main__":
+    toggle(17, 3000)
+# use the GPIO pin not the physical pin number (used 27 for test on LED)
 
