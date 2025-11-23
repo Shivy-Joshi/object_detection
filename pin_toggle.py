@@ -11,8 +11,24 @@ def toggle(pin, sec):
 
     GPIO.cleanup()
 
+def toggle_forever(pin, sec):
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(pin, GPIO.OUT)
+
+    try:
+        while True:
+            GPIO.output(pin, 1)
+            time.sleep(sec)
+            GPIO.output(pin, 0)
+            time.sleep(sec)
+
+    except KeyboardInterrupt:
+        pass
+
+    finally:
+        GPIO.cleanup()
 
 if __name__ == "__main__":
-    toggle(17, 3)
-# use the GPIO pin not the physical pin number (used 27 for test on LED)
+    toggle_forever(17, 2)  # toggles every 2 seconds forever
+
 
