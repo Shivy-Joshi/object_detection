@@ -1,8 +1,11 @@
 from pin_toggle import toggle, toggle_forever # your file containing the function
-import time
 
-toggle(27, 1)
-time.sleep(1)
-toggle(27,1 )
-time.sleep(1)
-toggle(27,1 )
+
+def call_arduino():
+    """
+        sets pin high to let arudion know to actuate the arm.
+    """
+    toggle(27, 2) # toggles pin on arduino
+
+
+call_arduino()
