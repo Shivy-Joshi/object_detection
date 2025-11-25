@@ -29,6 +29,6 @@ def toggle_forever(pin, sec):
         GPIO.cleanup()
 
 if __name__ == "__main__":
-    toggle_forever(27, 2)  # toggles every 2 seconds forever
+    toggle(27, 3)  # toggles every 2 seconds forever
 
 
