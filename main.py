@@ -1,8 +1,8 @@
 import cv2
 import time
-from blue_detector import detect_blue_object  # Allows for object detection
-#from can_toolbox import send_message          # allows for sending msgs
-#from pin_toggle import toggle                 # allows for GPIO access
+from blue_detector import detect_blue_object
+# from can_toolbox import send_message
+# from pin_toggle import toggle
 
 # Try to import Picamera2 for Pi Camera 3 support
 try:
@@ -14,7 +14,7 @@ except ImportError:
 # ---------------------------------------------------------------------
 # Set this to "laptop" or "pi" depending on where you're running.
 # ---------------------------------------------------------------------
-PLATFORM = "pi"   # change to "laptop" when testing on your PC
+PLATFORM = "pi"   # << change as needed
 # ---------------------------------------------------------------------
 
 
@@ -25,15 +25,19 @@ def get_config(platform: str):
     if platform == "laptop":
         return {
             "backend": "opencv",
-            "device_index": 0,     # usually the built-in or first USB cam
-            "show_window": True,   # show live window
+            "device_index": 0,
+            "show_window": True,
             "width": 640,
             "height": 480,
         }
     elif platform == "pi":
         return {
             "backend": "picamera2",
-            "show_window": False,  # headless by default on Pi
+            # ---------------------------------------------------------
+            # OPTION 1 (SSH + X11 LIVE VIEW)
+            # Set this to True when you SSH with:  ssh -X shivy@IP
+            # ---------------------------------------------------------
+            "show_window": True,     # <-- turn live display on for Pi
             "width": 640,
             "height": 480,
         }
@@ -42,20 +46,17 @@ def get_config(platform: str):
 
 
 def call_arduino():
-    """
-    Sets pin high to let Arduino know to actuate the arm.
-    """
-    toggle(27, 2)  # toggles pin on Arduino
+    pass
+    # toggle(27, 2)
 
 
 def main():
     cfg = get_config(PLATFORM)
-
-    # ---------------------------------------------------------
-    # 1) Initialize the camera depending on platform/backend
-    # ---------------------------------------------------------
     backend = cfg["backend"]
 
+    # ---------------------------------------------------------
+    # 1) Initialize camera
+    # ---------------------------------------------------------
     if backend == "opencv":
         cap = cv2.VideoCapture(cfg["device_index"])
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, cfg["width"])
@@ -65,15 +66,11 @@ def main():
             print("Could not open laptop camera")
             return
 
-        print(
-            "Running on LAPTOP",
-            "| window:" + ("ON" if cfg["show_window"] else "OFF"),
-            "| press 'q' to quit.",
-        )
+        print("Running on LAPTOP | window:", cfg["show_window"])
 
     elif backend == "picamera2":
         if not PICAM_AVAILABLE:
-            print("Picamera2 not installed! Run: sudo apt install python3-picamera2")
+            print("Picamera2 missing; install with: sudo apt install python3-picamera2")
             return
 
         picam = Picamera2()
@@ -84,67 +81,60 @@ def main():
         )
         picam.start()
 
-        print(
-            "Running on PI (Pi Camera 3 via Picamera2)",
-            "| window:" + ("ON" if cfg["show_window"] else "OFF"),
-        )
+        print("Running on PI CAMERA 3 | window:", cfg["show_window"])
     else:
         raise RuntimeError(f"Unsupported backend: {backend}")
 
     # ---------------------------------------------------------
-    # 2) Main loop
+    # 2) Main Loop
     # ---------------------------------------------------------
     frame_count = 0
 
     try:
         while True:
-            # ----------- Grab frame differently per backend -----------
+
+            # Grab frame
             if backend == "opencv":
                 ret, frame = cap.read()
                 if not ret:
                     print("Failed to grab frame")
                     break
             else:
-                # Picamera2 returns a NumPy array in BGR order
-                frame = picam.capture_array()
-            # ---------------------------------------------------------
+                frame_rgb = picam.capture_array()
+                # Convert RGB → BGR so colours are correct in OpenCV
+                frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
 
-            # ----- YOUR BLUE OBJECT DETECTOR -----
+            # Run detection
             annotated, info = detect_blue_object(frame)
-            # -------------------------------------
+
             if info is not None:
                 x, y, w, h, cx, cy, ex_rel, ey_rel, angle_rel = info
-                # send center error over CAN
-               # send_message(0x100, ex_rel, ey_rel)
-                # send angle error over CAN
-                #send_message(0x101, angle_rel, 0.0)
+                # send_message(0x100, ex_rel, ey_rel)
+                # send_message(0x101, angle_rel, 0.0)
 
                 print(
                     f"Center error X,Y: ({ex_rel:.3f}, {ey_rel:.3f})  "
-                    f"Size: {w}x{h}, angle error: {angle_rel:.3f}"
+                    f"Size: {w}x{h}, angle: {angle_rel:.3f}"
                 )
-
-                # you can call Arduino here if you want, e.g.:
-                # if abs(ex_rel) < 0.05 and abs(ey_rel) < 0.05:
-                #     call_arduino()
-
             else:
-                print("No blue object detected.                               ", end="\r")
+                print("No blue object detected.                              ", end="\r")
 
-            # Show live window only on laptop (or if you explicitly enable it)
+            # ----------- OPTION 1: Show annotated over SSH -X -----------
             if cfg["show_window"]:
-                cv2.imshow("Blue Object Detection", annotated)
-                if cv2.waitKey(1) & 0xFF == ord("q"):
-                    print("\n'q' pressed, exiting...")
-                    break
+                cv2.imshow("Blue Object Detection (SSH Stream)", annotated)
 
-            # Optional: save a debug frame every 30 frames
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    print("Window closed by user.")
+                    break
+            # ------------------------------------------------------------
+
+            # Save debug frame every 30 frames
             frame_count += 1
             if frame_count % 30 == 0:
                 cv2.imwrite("debug_frame.jpg", annotated)
 
     except KeyboardInterrupt:
-        print("\nCTRL+C detected, stopping...")
+        print("\nCTRL+C detected")
 
     finally:
         if backend == "opencv":
@@ -153,6 +143,9 @@ def main():
                 cv2.destroyAllWindows()
         else:
             picam.stop()
+            if cfg["show_window"]:
+                cv2.destroyAllWindows()
+
         print("Camera released.")
 
 
