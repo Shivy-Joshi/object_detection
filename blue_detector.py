@@ -4,12 +4,22 @@ import numpy as np
 
 def detect_blue_object(bgr_img):
     """
-    Input:
-        bgr_img: OpenCV image in BGR format
-    Output:
-        annotated_img: image with box/center drawn
-        info: (cx, cy, w, h) or None if nothing found
-    """
+        Input:
+            bgr_img: OpenCV image in BGR format
+
+        Output:
+            annotated_img: image with box/center drawn
+            info:
+                (x, y, w, h, cx, cy, ex_rel, ey_rel)
+                or None if nothing found
+
+            where:
+                (x, y, w, h)   = bounding box (top-left, width, height)
+                (cx, cy)       = center of the box (pixels)
+                ex_rel         = relative x error: (cx - frame_cx) / frame_cx
+                ey_rel         = relative y error: (cy - frame_cy) / frame_cy
+                                (0 means centered, ±1 ≈ left/right or top/bottom edge)
+        """
 
     # 1) Convert BGR -> HSV
     hsv = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2HSV)
@@ -50,16 +60,37 @@ def detect_blue_object(bgr_img):
     cy = y + h // 2
     cv2.circle(annotated, (cx, cy), 5, (0, 0, 255), -1)
 
-    return annotated, (x, y, w, h, cx, cy)
+    # after computing cx, cy:
+    img_h, img_w = bgr_img.shape[:2]
+    frame_cx = img_w // 2
+    frame_cy = img_h // 2
+
+    err_x_pix = cx - frame_cx
+    err_y_pix = cy - frame_cy
+
+    ex_rel = err_x_pix / frame_cx
+    ey_rel = err_y_pix / frame_cy
+
+    return annotated, (x, y, w, h, cx, cy, ex_rel, ey_rel)
 
 def detect_white_object(bgr_img): #used to detect the package
     """
-    Input:
-        bgr_img: OpenCV image in BGR format
-    Output:
-        annotated_img: image with box/center drawn
-        info: (cx, cy, w, h) or None if nothing found
-    """
+        Input:
+            bgr_img: OpenCV image in BGR format
+
+        Output:
+            annotated_img: image with box/center drawn
+            info:
+                (x, y, w, h, cx, cy, ex_rel, ey_rel)
+                or None if nothing found
+
+            where:
+                (x, y, w, h)   = bounding box (top-left, width, height)
+                (cx, cy)       = center of the box (pixels)
+                ex_rel         = relative x error: (cx - frame_cx) / frame_cx
+                ey_rel         = relative y error: (cy - frame_cy) / frame_cy
+                                (0 means centered, ±1 ≈ left/right or top/bottom edge)
+        """
 
     # 1) Convert BGR -> HSV
     hsv = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2HSV)
@@ -100,8 +131,18 @@ def detect_white_object(bgr_img): #used to detect the package
     cy = y + h // 2
     cv2.circle(annotated, (cx, cy), 5, (0, 0, 255), -1)
 
-    return annotated, (x, y, w, h, cx, cy)
+    # after computing cx, cy:
+    img_h, img_w = bgr_img.shape[:2]
+    frame_cx = img_w // 2
+    frame_cy = img_h // 2
 
+    err_x_pix = cx - frame_cx
+    err_y_pix = cy - frame_cy
+
+    ex_rel = err_x_pix / frame_cx
+    ey_rel = err_y_pix / frame_cy
+
+    return annotated, (x, y, w, h, cx, cy, ex_rel, ey_rel)
 
 
 if __name__ == "__main__":
