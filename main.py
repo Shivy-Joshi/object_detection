@@ -1,6 +1,6 @@
 import cv2
-from blue_detector import detect_blue_object  # your file containing the function
-
+from blue_detector import detect_blue_object  # Allows for object detection
+from can_toolbox import send_message # allows for sending msgs
 # ---------------------------------------------------------------------
 # Set this to "laptop" or "pi" depending on where you're running.
 # ---------------------------------------------------------------------
@@ -81,6 +81,7 @@ def main():
             # -------------------------------------
             if info is not None:
                 x, y, w, h, cx, cy, ex_rel, ey_rel = info
+                send_message(0X100,ex_rel,ey_rel) # sends the error
                 print(f"Center error X,Y: ({ex_rel}, {ey_rel})  Size: {w}x{h}")
 
             else:
