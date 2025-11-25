@@ -26,7 +26,7 @@ def send_message(frame_ID,value_1,value_2):
     )
 
     try:
-        frame_ID.send(msg)
+        bus.send(msg)
         print(
             f"Sent vision: Frame ID={frame_ID}, Vaule_1={value_1}, value_2={value_2}, bytes={data.hex()}"
         )
@@ -37,10 +37,10 @@ def send_message(frame_ID,value_1,value_2):
 def main():
     # Example arbitrary test values
     test_values = [
-        (100,100, 200,),
-        (100,-100, -200),
-        (101,0, 0),
-        (101, 0.32767, -0.32768 ),
+        (int(100,16),100, 200,),
+        (int(100,16),-100, -200),
+        (int(101,16),0, 0),
+        (int(101,16), 0.32767, -0.32768 ),
     ]
 
     # Send each example value once per second in a loop
