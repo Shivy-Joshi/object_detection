@@ -1,6 +1,6 @@
 # flask_stream.py
 # Live annotated stream from Pi Camera 3 using Flask (MJPEG)
-# Uses Picamera2's default colour pipeline (no manual format).
+# Uses Picamera2's default colour pipeline, but with wider FOV (1640x1232).
 
 from flask import Flask, Response, render_template_string
 from picamera2 import Picamera2
@@ -15,10 +15,10 @@ app = Flask(__name__)
 
 picam = Picamera2()
 
-# Let Picamera2 choose the default format/colour pipeline.
-# Just ask for a reasonable resolution.
+# WIDER FOV: use 1640x1232 (4:3) instead of 1280x720 (16:9).
+# No manual format -> keep default ISP/colour (so colours stay correct).
 config = picam.create_video_configuration(
-    main={"size": (1280, 720)}   # 720p, wide, should look normal
+    main={"size": (1640, 1232)}
 )
 picam.configure(config)
 picam.start()
@@ -46,7 +46,7 @@ def gen_frames():
         # Resize for streaming – NO cropping, only scaling
         display_frame = cv2.resize(
             annotated,
-            (960, 720),                 # adjust if you want a different size
+            (960, 720),                 # just the stream size; FOV comes from 1640x1232 above
             interpolation=cv2.INTER_AREA
         )
 
@@ -81,7 +81,7 @@ def index():
         </style>
       </head>
       <body>
-        <h2>Pi Camera 3 – Landscape, Scaled</h2>
+        <h2>Pi Camera 3 – Landscape, Wider FOV, Correct Colours</h2>
         <img src="{{ url_for('video_feed') }}">
       </body>
     </html>
