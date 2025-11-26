@@ -11,42 +11,36 @@ app = Flask(__name__)
 # ----------------- Camera Setup -----------------
 picam = Picamera2()
 
-# Wide capture resolution
+# Configure as portrait 720x1280, we will rotate it to 1280x720
 config = picam.create_video_configuration(
-    main={"size": (1280, 720)}   # WIDE RESOLUTION
+    main={"size": (720, 1280)}   # PORTRAIT
 )
-
 picam.configure(config)
 picam.start()
+print("Camera config:", config)
 
 
 def gen_frames():
     while True:
-        # Capture RGB image
         frame_rgb = picam.capture_array()
         frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
 
-        # 🔵 Rotate to make the camera WIDE instead of tall
-        frame_bgr = cv2.rotate(frame_bgr, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        # Rotate 90° CLOCKWISE → result is 1280x720 (landscape)
+        frame_bgr = cv2.rotate(frame_bgr, cv2.ROTATE_90_CLOCKWISE)
 
-        # Run your detector
         annotated, info = detect_blue_object(frame_bgr)
 
-        # Encode JPEG
         ok, buffer = cv2.imencode(".jpg", annotated, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
         if not ok:
             continue
 
         frame_bytes = buffer.tobytes()
-
-        # MJPEG frame output
         yield (
             b"--frame\r\n"
             b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
         )
 
 
-# ----------------- Web Pages -----------------
 @app.route("/")
 def index():
     html = """
@@ -59,7 +53,7 @@ def index():
         </style>
       </head>
       <body>
-        <h2>Pi Camera 3 – Blue Detector View (Wide & Rotated)</h2>
+        <h2>Pi Camera 3 – Blue Detector View (Landscape)</h2>
         <img src="{{ url_for('video_feed') }}" />
       </body>
     </html>
@@ -75,7 +69,6 @@ def video_feed():
     )
 
 
-# ----------------- Main -----------------
 if __name__ == "__main__":
-    print("Starting Flask stream on http://0.0.0.0:5000/")
+    print("Streaming on http://0.0.0.0:5000/")
     app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
