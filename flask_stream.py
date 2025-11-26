@@ -1,5 +1,6 @@
 # flask_stream.py
-# FULL SENSOR, UNCROPPED, ROTATED LANDSCAPE
+# Live annotated stream from Pi Camera using Flask (MJPEG)
+# Full sensor FOV (2592x1944), rotated to landscape.
 
 from flask import Flask, Response, render_template_string
 from picamera2 import Picamera2
@@ -8,19 +9,19 @@ from blue_detector import detect_blue_object
 
 app = Flask(__name__)
 
-# -------------- Camera Setup (FULL SENSOR, NO CROP) --------------
+# -------------- Camera Setup --------------
 picam = Picamera2()
 
 config = picam.create_video_configuration(
     main={
-        "size": (4608, 2592),   # FULL 12MP SENSOR, UNCROPPED
-        "format": "RGB888"      # simple format for OpenCV
-    }
+        "size": (2592, 1944),   # sensor native resolution (full FOV)
+        "format": "RGB888",
+    },
+    buffer_count=2,             # keep buffers low to save memory
 )
-
 picam.configure(config)
 picam.start()
-print("Using full uncropped sensor:", config)
+print("Camera config:", config)
 
 
 def gen_frames():
@@ -28,10 +29,10 @@ def gen_frames():
         frame_rgb = picam.capture_array()
         frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
 
-        # ROTATE the full sensor frame so it's landscape
+        # Rotate to make final image landscape
         frame_bgr = cv2.rotate(frame_bgr, cv2.ROTATE_90_CLOCKWISE)
 
-        # run detector (optional)
+        # Run your detector
         annotated, info = detect_blue_object(frame_bgr)
 
         # JPEG encode
@@ -39,36 +40,41 @@ def gen_frames():
         if not ok:
             continue
 
+        frame_bytes = buffer.tobytes()
         yield (
             b"--frame\r\n"
-            b"Content-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n"
+            b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
         )
 
 
 @app.route("/")
 def index():
-    return render_template_string("""
+    html = """
     <html>
       <head>
-        <title>Pi Camera 3 Full Sensor Stream</title>
-        <style> body { background:#111; color:#ddd; text-align:center; } img { width:90%; } </style>
+        <title>Pi Blue Detector Stream</title>
+        <style>
+          body { background:#111; color:#ddd; text-align:center; }
+          img  { border: 2px solid #444; margin-top: 20px; width: 90%; }
+        </style>
       </head>
       <body>
-        <h2>Pi Camera 3 – Full Uncropped Sensor (Landscape)</h2>
-        <img src="{{ url_for('video_feed') }}">
+        <h2>Pi Camera – Full FOV, Landscape</h2>
+        <img src="{{ url_for('video_feed') }}" />
       </body>
     </html>
-    """)
+    """
+    return render_template_string(html)
 
 
 @app.route("/video_feed")
 def video_feed():
     return Response(
         gen_frames(),
-        mimetype="multipart/x-mixed-replace; boundary=frame"
+        mimetype="multipart/x-mixed-replace; boundary=frame",
     )
 
 
 if __name__ == "__main__":
-    print("Streaming full sensor at http://0.0.0.0:5000/")
+    print("Streaming on http://0.0.0.0:5000/")
     app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
