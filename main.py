@@ -3,8 +3,8 @@ import time
 import threading
 
 from blue_detector import detect_blue_object
-# from can_toolbox import send_message
-# from pin_toggle import toggle
+from can_toolbox import send_message
+from pin_toggle import toggle
 
 # ----------------- Flask imports -----------------
 from flask import Flask, Response, render_template_string
@@ -176,13 +176,13 @@ def main():
             annotated, info = detect_blue_object(frame)
 
             if info is not None:
-                x, y, w, h, cx, cy, ex_rel, ey_rel, angle_rel = info
-                # send_message(0x100, ex_rel, ey_rel)
-                # send_message(0x101, angle_rel, 0.0)
+                x, y, w, h, cx, cy, ex_rel, ey_rel, angle_rel, distance_m  = info
+                 send_message(0x100, ex_rel, ey_rel)
+                 send_message(0x101, angle_rel, distance_m)
 
                 print(
                     f"Center error X,Y: ({ex_rel:.3f}, {ey_rel:.3f})  "
-                    f"Size: {w}x{h}, angle: {angle_rel:.3f}"
+                    f"Size: {w}x{h}, angle: {angle_rel:.3f}, distance_m {distance_m:.3f}"
                 )
             else:
                 print("No blue object detected.                              ", end="\r")

@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+from distance_utils import estimate_blue_distance
+
 
 
 def detect_blue_object(bgr_img):
@@ -9,8 +11,8 @@ def detect_blue_object(bgr_img):
 
     Output:
         annotated_img: image with box/center drawn
-        info:
-            (x, y, w, h, cx, cy, ex_rel, ey_rel, angle_rel)
+               info:
+            (x, y, w, h, cx, cy, ex_rel, ey_rel, angle_rel, distance_m)
             or None if nothing found
 
         where:
@@ -89,7 +91,7 @@ def detect_blue_object(bgr_img):
     # Split into left and right regions (here: first and last quarter of bbox)
     if w >= 4:
         left_region = col_heights[: w // 4]
-        right_region = col_heights[3 * w // 4 :]
+        right_region = col_heights[3 * w // 4:]
     else:
         left_region = col_heights
         right_region = col_heights
@@ -110,7 +112,10 @@ def detect_blue_object(bgr_img):
         else:
             angle_rel = 0.0
 
-    # 11) VISUAL DEBUG OVERLAYS
+    # --- 11) Distance estimation using calibration ---
+    distance_m = estimate_blue_distance(h)  # h = bbox height in pixels
+
+    # 12) VISUAL DEBUG OVERLAYS
 
     # draw the left/right region boundaries in magenta
     if w >= 4:
@@ -119,11 +124,12 @@ def detect_blue_object(bgr_img):
         cv2.line(annotated, (left_x, y), (left_x, y + h), (255, 0, 255), 1)
         cv2.line(annotated, (right_x, y), (right_x, y + h), (255, 0, 255), 1)
 
-    # show text with left/right heights and angle_rel above the box
+    # show text with left/right heights, angle_rel, and distance above the box
     text_y = max(y - 10, 0)
+    dist_text = f"dist:{distance_m:.3f}m" if distance_m is not None else "dist: N/A"
     cv2.putText(
         annotated,
-        f"L:{h_left:.0f} R:{h_right:.0f} ang:{angle_rel:.2f}",
+        f"L:{h_left:.0f} R:{h_right:.0f} ang:{angle_rel:.2f} {dist_text}",
         (x, text_y),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.5,
@@ -133,7 +139,6 @@ def detect_blue_object(bgr_img):
     )
 
     # also draw a small arrow indicating which side appears "closer"
-    # arrow from center of box, pointing left or right
     arrow_length = int(w * 0.2 * abs(angle_rel))  # scale with magnitude
     if arrow_length > 0:
         if angle_rel > 0:
@@ -151,7 +156,8 @@ def detect_blue_object(bgr_img):
             tipLength=0.3,
         )
 
-    return annotated, (x, y, w, h, cx, cy, ex_rel, ey_rel, angle_rel)
+    # NOTE: now returning distance_m as the last element
+    return annotated, (x, y, w, h, cx, cy, ex_rel, ey_rel, angle_rel, distance_m)
 
 
 def detect_white_object(bgr_img): #used to detect the package
