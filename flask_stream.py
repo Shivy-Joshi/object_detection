@@ -35,8 +35,19 @@ def gen_frames():
         # Run your detector
         annotated, info = detect_blue_object(frame_bgr)
 
-        # JPEG encode
-        ok, buffer = cv2.imencode(".jpg", annotated, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+        # ---------- RESIZE WITHOUT CROPPING ----------
+        # Scale down by 50% in each direction (keeps aspect ratio)
+        # Adjust fx, fy as you like (0.5 = half size, 0.33 = third, etc.)
+        display = cv2.resize(
+            annotated,
+            None,
+            fx=0.5,
+            fy=0.5,
+            interpolation=cv2.INTER_AREA,
+        )
+        # ----------------------------------------------
+
+        ok, buffer = cv2.imencode(".jpg", display, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
         if not ok:
             continue
 
