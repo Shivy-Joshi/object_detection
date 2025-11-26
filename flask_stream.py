@@ -41,8 +41,8 @@ def gen_frames():
         display = cv2.resize(
             annotated,
             None,
-            fx=0.5,
-            fy=0.5,
+            fx=0.1,
+            fy=0.1,
             interpolation=cv2.INTER_AREA,
         )
         # ----------------------------------------------
