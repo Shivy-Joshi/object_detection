@@ -95,9 +95,10 @@ def get_config(platform: str):
     elif platform == "pi":
         return {
             "backend": "picamera2",
-            # show_window=True will pop up an X11 window if you SSH with -X
-            "show_window": False,     # usually False when using Flask stream
-            "width": 1640,            # use wider FOV on Pi
+            # usually False when using Flask stream; set True if you want X11 window too
+            "show_window": False,
+            # use wider FOV on Pi
+            "width": 1640,
             "height": 1232,
         }
     else:
@@ -165,7 +166,13 @@ def main():
                 # Convert RGB → BGR so colours are correct in OpenCV
                 frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
 
-            # Run detection
+                # 🔄 Rotate Pi camera frame BEFORE any calculations
+                # so all centering/angle math is done in landscape orientation.
+                frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+                # If this is the wrong way, swap to:
+                # frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+            # Run detection on the rotated frame (for Pi) or raw frame (for laptop)
             annotated, info = detect_blue_object(frame)
 
             if info is not None:
@@ -181,7 +188,7 @@ def main():
                 print("No blue object detected.                              ", end="\r")
 
             # ------------ Update Flask stream frame ------------
-            # Resize for streaming but keep aspect ratio / no crop
+            # Use the already-rotated annotated frame for the stream
             stream_frame = cv2.resize(
                 annotated,
                 (960, 720),
@@ -192,7 +199,7 @@ def main():
                 latest_jpeg = buf.tobytes()
             # --------------------------------------------------
 
-            # Optional: local OpenCV window (e.g., SSH -X on laptop or Pi)
+            # Optional: local OpenCV window
             if cfg["show_window"]:
                 cv2.imshow("Blue Object Detection (Local)", annotated)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
