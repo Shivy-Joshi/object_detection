@@ -1,8 +1,70 @@
 import cv2
 import time
+import threading
+
 from blue_detector import detect_blue_object
 # from can_toolbox import send_message
 # from pin_toggle import toggle
+
+# ----------------- Flask imports -----------------
+from flask import Flask, Response, render_template_string
+
+# Global buffer for latest JPEG frame (for Flask)
+latest_jpeg = None
+
+app = Flask(__name__)
+
+
+# =======================
+#   FLASK STREAM SETUP
+# =======================
+
+@app.route("/")
+def index():
+    html = """
+    <html>
+      <head>
+        <title>Blue Detector Stream</title>
+        <style>
+          body { background:#111; color:#ddd; text-align:center; font-family:Arial; }
+          img  { border:2px solid #444; margin-top:20px; width:70%; max-width:960px; }
+        </style>
+      </head>
+      <body>
+        <h2>Pi Camera – Blue Detector Live Stream</h2>
+        <p>Stream provided by main.py (no second camera).</p>
+        <img src="{{ url_for('video_feed') }}">
+      </body>
+    </html>
+    """
+    return render_template_string(html)
+
+
+@app.route("/video_feed")
+def video_feed():
+    def gen():
+        global latest_jpeg
+        while True:
+            if latest_jpeg is not None:
+                yield (
+                    b"--frame\r\n"
+                    b"Content-Type: image/jpeg\r\n\r\n" +
+                    latest_jpeg +
+                    b"\r\n"
+                )
+            time.sleep(0.03)  # ~30 fps cap
+    return Response(gen(), mimetype="multipart/x-mixed-replace; boundary=frame")
+
+
+def start_flask():
+    # Run Flask in a background thread
+    app.run(host="0.0.0.0", port=5000, debug=False,
+            threaded=True, use_reloader=False)
+
+
+# =======================
+#   CAMERA / MAIN LOGIC
+# =======================
 
 # Try to import Picamera2 for Pi Camera 3 support
 try:
@@ -33,13 +95,10 @@ def get_config(platform: str):
     elif platform == "pi":
         return {
             "backend": "picamera2",
-            # ---------------------------------------------------------
-            # OPTION 1 (SSH + X11 LIVE VIEW)
-            # Set this to True when you SSH with:  ssh -X shivy@IP
-            # ---------------------------------------------------------
-            "show_window": True,     # <-- turn live display on for Pi
-            "width": 640,
-            "height": 480,
+            # show_window=True will pop up an X11 window if you SSH with -X
+            "show_window": False,     # usually False when using Flask stream
+            "width": 1640,            # use wider FOV on Pi
+            "height": 1232,
         }
     else:
         raise ValueError(f"Unknown PLATFORM: {platform}")
@@ -51,6 +110,8 @@ def call_arduino():
 
 
 def main():
+    global latest_jpeg
+
     cfg = get_config(PLATFORM)
     backend = cfg["backend"]
 
@@ -119,14 +180,24 @@ def main():
             else:
                 print("No blue object detected.                              ", end="\r")
 
-            # ----------- OPTION 1: Show annotated over SSH -X -----------
-            if cfg["show_window"]:
-                cv2.imshow("Blue Object Detection (SSH Stream)", annotated)
+            # ------------ Update Flask stream frame ------------
+            # Resize for streaming but keep aspect ratio / no crop
+            stream_frame = cv2.resize(
+                annotated,
+                (960, 720),
+                interpolation=cv2.INTER_AREA,
+            )
+            ok, buf = cv2.imencode(".jpg", stream_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+            if ok:
+                latest_jpeg = buf.tobytes()
+            # --------------------------------------------------
 
+            # Optional: local OpenCV window (e.g., SSH -X on laptop or Pi)
+            if cfg["show_window"]:
+                cv2.imshow("Blue Object Detection (Local)", annotated)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     print("Window closed by user.")
                     break
-            # ------------------------------------------------------------
 
             # Save debug frame every 30 frames
             frame_count += 1
@@ -149,5 +220,15 @@ def main():
         print("Camera released.")
 
 
+# =======================
+#   ENTRY POINT
+# =======================
+
 if __name__ == "__main__":
+    # Start Flask stream in background
+    flask_thread = threading.Thread(target=start_flask, daemon=True)
+    flask_thread.start()
+
+    print("Flask stream running on http://0.0.0.0:5000")
+    # Run main camera / detection loop
     main()
