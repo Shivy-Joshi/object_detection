@@ -1,5 +1,6 @@
 # flask_stream.py
 # Live annotated stream from Pi Camera 3 using Flask (MJPEG)
+# Uses Picamera2's default colour pipeline (no manual format).
 
 from flask import Flask, Response, render_template_string
 from picamera2 import Picamera2
@@ -14,17 +15,13 @@ app = Flask(__name__)
 
 picam = Picamera2()
 
+# Let Picamera2 choose the default format/colour pipeline.
+# Just ask for a reasonable resolution.
 config = picam.create_video_configuration(
-    main={
-        "size": (1640, 1232),     # full wide FOV, moderate resolution
-        "format": "RGB888",       # IMPORTANT: RGB to avoid blue skin
-    },
-    buffer_count=2,
+    main={"size": (1280, 720)}   # 720p, wide, should look normal
 )
-
 picam.configure(config)
 picam.start()
-
 print("Camera configured:", config)
 
 
@@ -34,22 +31,22 @@ print("Camera configured:", config)
 
 def gen_frames():
     while True:
-        # Capture RGB frame
+        # Picamera2 returns an RGB frame with default ISP / colour settings
         frame_rgb = picam.capture_array()
 
-        # Convert to BGR for OpenCV (corrects color)
+        # Convert to BGR for OpenCV
         frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
 
-        # Rotate 90° to make camera landscape
+        # Rotate so the sideways-mounted camera becomes landscape
         frame_bgr = cv2.rotate(frame_bgr, cv2.ROTATE_90_CLOCKWISE)
 
-        # Run your detector (returns annotated frame)
+        # Run your blue detector
         annotated, info = detect_blue_object(frame_bgr)
 
-        # Resize for streaming — NO cropping, only scaling
+        # Resize for streaming – NO cropping, only scaling
         display_frame = cv2.resize(
             annotated,
-            (960, 720),                 # change size here if needed
+            (960, 720),                 # adjust if you want a different size
             interpolation=cv2.INTER_AREA
         )
 
@@ -77,14 +74,14 @@ def index():
     html = """
     <html>
       <head>
-        <title>Pi Camera – Landscape Stream</title>
+        <title>Pi Camera 3 – Stream</title>
         <style>
           body { background:#111; color:#ddd; text-align:center; font-family:Arial; }
           img  { border:2px solid #444; margin-top:20px; width:70%; max-width:960px; }
         </style>
       </head>
       <body>
-        <h2>Pi Camera 3 – Landscape, Scaled, Correct Colours</h2>
+        <h2>Pi Camera 3 – Landscape, Scaled</h2>
         <img src="{{ url_for('video_feed') }}">
       </body>
     </html>
