@@ -177,8 +177,8 @@ def main():
 
             if info is not None:
                 x, y, w, h, cx, cy, ex_rel, ey_rel, angle_rel, distance_m  = info
-                 send_message(0x100, ex_rel, ey_rel)
-                 send_message(0x101, angle_rel, distance_m)
+                send_message(0x100, ex_rel, ey_rel)
+                send_message(0x101, angle_rel, distance_m)
 
                 print(
                     f"Center error X,Y: ({ex_rel:.3f}, {ey_rel:.3f})  "
