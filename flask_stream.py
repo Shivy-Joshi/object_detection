@@ -1,6 +1,5 @@
 # flask_stream.py
 # Live annotated stream from Pi Camera using Flask (MJPEG)
-# Full sensor FOV (2592x1944), rotated to landscape.
 
 from flask import Flask, Response, render_template_string
 from picamera2 import Picamera2
@@ -14,10 +13,10 @@ picam = Picamera2()
 
 config = picam.create_video_configuration(
     main={
-        "size": (2592, 1944),   # sensor native resolution (full FOV)
-        "format": "RGB888",
+        "size": (1640, 1232),   # good FOV, lighter than full 2592x1944
+        "format": "BGR888",     # directly usable by OpenCV
     },
-    buffer_count=2,             # keep buffers low to save memory
+    buffer_count=2,
 )
 picam.configure(config)
 picam.start()
@@ -26,26 +25,23 @@ print("Camera config:", config)
 
 def gen_frames():
     while True:
-        frame_rgb = picam.capture_array()
-        frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+        # Grab a BGR frame directly
+        frame_bgr = picam.capture_array()   # already BGR888
 
-        # Rotate to make final image landscape
+        # Rotate so image is landscape (adjust if wrong direction)
         frame_bgr = cv2.rotate(frame_bgr, cv2.ROTATE_90_CLOCKWISE)
 
         # Run your detector
         annotated, info = detect_blue_object(frame_bgr)
 
-        # ---------- RESIZE WITHOUT CROPPING ----------
-        # Scale down by 50% in each direction (keeps aspect ratio)
-        # Adjust fx, fy as you like (0.5 = half size, 0.33 = third, etc.)
+        # ---- Resize for streaming (no cropping, just scaling) ----
+        # Keep aspect ratio: choose a target width/height
         display = cv2.resize(
             annotated,
-            None,
-            fx=0.1,
-            fy=0.1,
+            (960, 720),               # target resolution
             interpolation=cv2.INTER_AREA,
         )
-        # ----------------------------------------------
+        # -----------------------------------------------------------
 
         ok, buffer = cv2.imencode(".jpg", display, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
         if not ok:
@@ -66,11 +62,11 @@ def index():
         <title>Pi Blue Detector Stream</title>
         <style>
           body { background:#111; color:#ddd; text-align:center; }
-          img  { border: 2px solid #444; margin-top: 20px; width: 90%; }
+          img  { border: 2px solid #444; margin-top: 20px; width: 50%; max-width: 960px; }
         </style>
       </head>
       <body>
-        <h2>Pi Camera – Full FOV, Landscape</h2>
+        <h2>Pi Camera – Landscape, Smaller, Correct Colours</h2>
         <img src="{{ url_for('video_feed') }}" />
       </body>
     </html>
