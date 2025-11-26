@@ -1,4 +1,4 @@
-\# flask_stream.py
+# flask_stream.py
 # FULL SENSOR, UNCROPPED, ROTATED LANDSCAPE
 
 from flask import Flask, Response, render_template_string
