@@ -29,7 +29,16 @@ def gen_frames():
         frame_rgb = picam.capture_array()
         frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
 
-        # Run your existing detector
+        # --------------------------
+        # ROTATE CAMERA VIEW HERE
+        # --------------------------
+        # Rotate 90 degrees clockwise
+        frame_bgr = cv2.rotate(frame_bgr, cv2.ROTATE_90_CLOCKWISE)
+        # If you want counter-clockwise instead, use:
+        # frame_bgr = cv2.rotate(frame_bgr, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        # --------------------------
+
+        # Run your existing detector on the rotated frame
         annotated, info = detect_blue_object(frame_bgr)
 
         # Encode the annotated frame as JPEG
@@ -39,7 +48,7 @@ def gen_frames():
 
         frame_bytes = buffer.tobytes()
 
-        # MJPEG magic: each frame is sent as a separate part
+        # MJPEG frame boundary
         yield (
             b"--frame\r\n"
             b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
@@ -49,7 +58,6 @@ def gen_frames():
 # ----------------- Routes -----------------
 @app.route("/")
 def index():
-    # Simple HTML page with the stream
     html = """
     <html>
       <head>
@@ -71,7 +79,6 @@ def index():
 
 @app.route("/video_feed")
 def video_feed():
-    # MJPEG stream endpoint
     return Response(
         gen_frames(),
         mimetype="multipart/x-mixed-replace; boundary=frame",
@@ -80,5 +87,4 @@ def video_feed():
 
 # ----------------- Main -----------------
 if __name__ == "__main__":
-    # Run the server; 0.0.0.0 makes it visible on your network
     app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
